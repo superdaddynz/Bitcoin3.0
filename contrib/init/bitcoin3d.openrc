@@ -1,0 +1,92 @@
+#!/sbin/openrc-run
+
+# backward compatibility for existing gentoo layout 
+#
+if [ -d "/var/lib/bitcoin3/.bitcoin3" ]; then
+	BITCOIN3D_DEFAULT_DATADIR="/var/lib/bitcoin3/.bitcoin3"
+else
+	BITCOIN3D_DEFAULT_DATADIR="/var/lib/bitcoin3d"
+fi
+
+BITCOIN3D_CONFIGFILE=${BITCOIN3D_CONFIGFILE:-/etc/bitcoin3/bitcoin3.conf}
+BITCOIN3D_PIDDIR=${BITCOIN3D_PIDDIR:-/var/run/bitcoin3d}
+BITCOIN3D_PIDFILE=${BITCOIN3D_PIDFILE:-${BITCOIN3D_PIDDIR}/bitcoin3d.pid}
+BITCOIN3D_DATADIR=${BITCOIN3D_DATADIR:-${BITCOIN3D_DEFAULT_DATADIR}}
+BITCOIN3D_USER=${BITCOIN3D_USER:-${BITCOIN3_USER:-bitcoin3}}
+BITCOIN3D_GROUP=${BITCOIN3D_GROUP:-bitcoin3}
+BITCOIN3D_BIN=${BITCOIN3D_BIN:-/usr/bin/bitcoin3d}
+BITCOIN3D_NICE=${BITCOIN3D_NICE:-${NICELEVEL:-0}}
+BITCOIN3D_OPTS="${BITCOIN3D_OPTS:-${BITCOIN3_OPTS}}"
+
+name="Bitcoin3 Core Daemon"
+description="Bitcoin3 cryptocurrency P2P network daemon"
+
+command="/usr/bin/bitcoin3d"
+command_args="-pid=\"${BITCOIN3D_PIDFILE}\" \
+		-conf=\"${BITCOIN3D_CONFIGFILE}\" \
+		-datadir=\"${BITCOIN3D_DATADIR}\" \
+		-daemon \
+		${BITCOIN3D_OPTS}"
+
+required_files="${BITCOIN3D_CONFIGFILE}"
+start_stop_daemon_args="-u ${BITCOIN3D_USER} \
+			-N ${BITCOIN3D_NICE} -w 2000"
+pidfile="${BITCOIN3D_PIDFILE}"
+
+# The retry schedule to use when stopping the daemon. Could be either
+# a timeout in seconds or multiple signal/timeout pairs (like
+# "SIGKILL/180 SIGTERM/300")
+retry="${BITCOIN3D_SIGTERM_TIMEOUT}"
+
+depend() {
+	need localmount net
+}
+
+# verify
+# 1) that the datadir exists and is writable (or create it)
+# 2) that a directory for the pid exists and is writable
+# 3) ownership and permissions on the config file
+start_pre() {
+	checkpath \
+	-d \
+	--mode 0750 \
+	--owner "${BITCOIN3D_USER}:${BITCOIN3D_GROUP}" \
+	"${BITCOIN3D_DATADIR}"
+
+	checkpath \
+	-d \
+	--mode 0755 \
+	--owner "${BITCOIN3D_USER}:${BITCOIN3D_GROUP}" \
+	"${BITCOIN3D_PIDDIR}"
+
+	checkpath -f \
+	-o ${BITCOIN3D_USER}:${BITCOIN3D_GROUP} \
+	-m 0660 \
+	${BITCOIN3D_CONFIGFILE}
+
+	checkconfig || return 1
+}
+
+checkconfig()
+{
+	if ! grep -qs '^rpcpassword=' "${BITCOIN3D_CONFIGFILE}" ; then
+		eerror ""
+		eerror "ERROR: You must set a secure rpcpassword to run bitcoin3d."
+		eerror "The setting must appear in ${BITCOIN3D_CONFIGFILE}"
+		eerror ""
+		eerror "This password is security critical to securing wallets "
+		eerror "and must not be the same as the rpcuser setting."
+		eerror "You can generate a suitable random password using the following "
+		eerror "command from the shell:"
+		eerror ""
+		eerror "bash -c 'tr -dc a-zA-Z0-9 < /dev/urandom | head -c32 && echo'"
+		eerror ""
+		eerror "It is recommended that you also set alertnotify so you are "
+		eerror "notified of problems:"
+		eerror ""
+		eerror "ie: alertnotify=echo %%s | mail -s \"Bitcoin3 Alert\"" \
+			"admin@foo.com"
+		eerror ""
+		return 1
+	fi
+}
