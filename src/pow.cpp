@@ -10,6 +10,7 @@
 #include <chain.h>
 #include <primitives/block.h>
 #include <uint256.h>
+#include <logging.h>
 
 int64_t HF1_BLOCK_HEIGHT = 1842;
 
@@ -89,7 +90,7 @@ unsigned int GetNextWorkRequired_HF1(const CBlockIndex* pindexLast, const CBlock
     // If the blockchain is stale for long time, halve the difficulty in every 50 minutes.
     if (pblock->GetBlockTime() > pindexLast->GetBlockTime() + params.nPowTargetSpacing*10)
     {
-        return CalculateNextWorkRequiredStale(pindexLast, (pblock->GetBlockTime() - pindexLast->GetBlockTime()) / params.nPowTargetSpacing*10, params);
+        return CalculateNextWorkRequiredStale(pindexLast, (pblock->GetBlockTime() - pindexLast->GetBlockTime()) / (params.nPowTargetSpacing*10), params);
     }
 
     // Only change once per difficulty adjustment interval

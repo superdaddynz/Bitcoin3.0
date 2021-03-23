@@ -50,6 +50,11 @@ int64_t UpdateTime(CBlockHeader* pblock, const Consensus::Params& consensusParam
     if (consensusParams.fPowAllowMinDifficultyBlocks)
         pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
 
+    // Updating time in stale blockchain requires to update next work
+    if ((nOldTime - pindexPrev->GetBlockTime()) / (consensusParams.nPowTargetSpacing*10) !=
+        (nNewTime - pindexPrev->GetBlockTime()) / (consensusParams.nPowTargetSpacing*10))
+        pblock->nBits = GetNextWorkRequired(pindexPrev, pblock, consensusParams);
+
     return nNewTime - nOldTime;
 }
 
